@@ -13,26 +13,38 @@ ENTRY(_entry)
 
 BASE_ADDRESS = 0x80000000;
 
+PHDRS
+{
+  text PT_LOAD FLAGS(7);
+  tramp PT_LOAD FLAGS(5);
+}
+
 SECTIONS
 {
   . = BASE_ADDRESS;
 
   .text : {          /* 代码段:entry.S 的第一段指令就在这里开头 */
     *(.text .text.*)
-  }
+  } :text
 
   .rodata : {        /* 只读数据:字符串常量等 */
     *(.rodata .rodata.*)
-  }
+  } :text
 
   .data : {          /* 已初始化数据 */
     *(.data .data.*)
-  }
+  } :text
 
   .bss : {           /* 未初始化数据:启动时由内核自行清零 */
     *(.bss .bss.*)
     *(.sbss*)
-  }
+  } :text
+
+  . = 0x81000000;
+  .trampsec : {
+    *(trampsec)
+    BYTE(0)
+  } :tramp
 
   /* 内核结束符号:lab3 的 kalloc 将从这里开始分配物理页 */
   kernel_end = .;

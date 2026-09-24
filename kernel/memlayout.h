@@ -32,6 +32,8 @@
 // core-local interrupt controller (CLINT)
 #define CLINT_BASE  0x02000000L
 #define CLINT(hart) (CLINT_BASE + (hart) * 4)
+#define CLINT_MTIMECMP(hart) (CLINT_BASE + 0x4000 + (hart) * 8)
+#define CLINT_MTIME          (CLINT_BASE + 0xbff8)
 
 // qemu puts platform-level interrupt controller (PLIC) here.
 #define PLIC                 0x0c000000L
@@ -47,21 +49,9 @@
 #define KERNBASE 0x80000000L
 #define PHYSTOP  (KERNBASE + 128 * 1024 * 1024)
 
-// map the trampoline page to the highest address,
-// in both user and kernel space.
-#define TRAMPOLINE (MAXVA - PGSIZE)
-
-// map kernel stacks beneath the trampoline,
-// each surrounded by invalid guard pages.
-#define KSTACK(p) (TRAMPOLINE - ((p) + 1) * 2 * PGSIZE)
-
-// User memory layout.
-// Address zero first:
-//   text
-//   original data and bss
-//   fixed-size stack
-//   expandable heap
-//   ...
-//   TRAPFRAME (p->trapframe, used by the trampoline)
-//   TRAMPOLINE (the same page as in the kernel)
-#define TRAPFRAME (TRAMPOLINE - PGSIZE)
+/* lab2 uses satp=0, so these are direct physical addresses in RAM. */
+#define TRAMPOLINE 0x81000000L
+#define TRAPFRAME   (TRAMPOLINE + 0x1000)
+#define USER_BASE   0x82000000L
+#define USER_IMAGE_MAX (128 * 1024)
+#define USER_STACK_TOP (USER_BASE + USER_IMAGE_MAX - 16)
