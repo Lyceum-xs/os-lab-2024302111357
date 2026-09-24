@@ -86,3 +86,11 @@ printf(const char *fmt, ...)
   vprintf(fmt, ap);
   va_end(ap);
 }
+
+void
+panic(const char *msg)
+{
+  printf("panic: %s\n", msg);
+  for (;;)
+    ;
+}

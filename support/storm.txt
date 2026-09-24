@@ -1,0 +1,5 @@
+# Four long character-stream input lines. Each line is longer than LAB2_BUF_SIZE.
+SEND bufstorm
+WAIT 200
+REPEAT 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+EXPECT BUFSTORM lines=4

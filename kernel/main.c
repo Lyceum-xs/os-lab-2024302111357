@@ -1,17 +1,18 @@
 #include "course_sid.h"
-
-void consputc(int c);
+#include "types.h"
+#include "memlayout.h"
+#include "riscv.h"
+#include "defs.h"
 
 static void
 banner(void)
 {
   const char text[] = "oslab sid=2024302111357 mod97=0x32\n";
   const char *p;
-
   for (p = text; *p; p++) {
-    consputc(*p);
+    uartputc_sync(*p);
     if (LAB1_BANNER_PROTOCOL == 1)
-      consputc('.');
+      uartputc_sync('.');
   }
 }
 
@@ -19,6 +20,14 @@ void
 main(void)
 {
   banner();
-  for (;;)
-    ;
+  consoleinit();
+  trapinit();
+  plicinit();
+  plicinithart();
+  *(volatile uint64 *)CLINT_MTIMECMP(0) =
+      *(volatile uint64 *)CLINT_MTIME + 1000000;
+  procinit();
+  userinit();
+  intr_on();
+  scheduler();
 }
