@@ -1,0 +1,14 @@
+*.o
+*.d
+*.asm
+*.sym
+fs.img
+kernel/kernel
+user-flat/
+kernel/userimg.S
+user/usys.S
+*.log
+*.out
+*.sock
+__pycache__/
+.DS_Store

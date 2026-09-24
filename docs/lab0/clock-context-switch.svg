@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="820" viewBox="0 0 1600 820">
+  <style>.title{font:700 28px sans-serif;fill:#17212b}.lane{font:700 18px sans-serif;fill:#17212b}.box{fill:#f5f8fb;stroke:#526777;stroke-width:2}.u{fill:#e9f5ff}.s{fill:#fff3df}.t{font:16px sans-serif;fill:#17212b}.small{font:14px sans-serif;fill:#526777}.arrow{stroke:#2f5d7c;stroke-width:2.5;fill:none;marker-end:url(#a)}</style>
+  <defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 z" fill="#2f5d7c"/></marker></defs>
+  <text x="40" y="45" class="title">lab0 任务三：时钟中断与上下文切换</text>
+  <line x1="260" y1="80" x2="260" y2="760" stroke="#b8c5ce"/><line x1="600" y1="80" x2="600" y2="760" stroke="#b8c5ce"/><line x1="950" y1="80" x2="950" y2="760" stroke="#b8c5ce"/><line x1="1260" y1="80" x2="1260" y2="760" stroke="#b8c5ce"/>
+  <text x="80" y="78" class="lane">用户态</text><text x="380" y="78" class="lane">trampoline / trapframe</text><text x="700" y="78" class="lane">进程内核态</text><text x="1040" y="78" class="lane">调度器栈</text><text x="1340" y="78" class="lane">恢复用户态</text>
+  <rect x="45" y="120" width="180" height="58" rx="8" class="box u"/><text x="73" y="155" class="t">用户指令运行</text>
+  <rect x="320" y="120" width="240" height="58" rx="8" class="box s"/><text x="360" y="155" class="t">timer interrupt / uservec</text>
+  <rect x="650" y="120" width="230" height="58" rx="8" class="box s"/><text x="700" y="155" class="t">usertrap 保存 epc</text>
+  <rect x="1010" y="120" width="200" height="58" rx="8" class="box s"/><text x="1050" y="155" class="t">更新 tick</text>
+  <rect x="650" y="270" width="230" height="58" rx="8" class="box s"/><text x="702" y="305" class="t">yield：RUNNABLE</text>
+  <rect x="1010" y="270" width="200" height="58" rx="8" class="box s"/><text x="1060" y="305" class="t">swtch 到 scheduler</text>
+  <rect x="1010" y="420" width="200" height="58" rx="8" class="box s"/><text x="1050" y="455" class="t">scheduler 选进程</text>
+  <rect x="650" y="420" width="230" height="58" rx="8" class="box s"/><text x="685" y="455" class="t">恢复 process context</text>
+  <rect x="320" y="570" width="240" height="58" rx="8" class="box s"/><text x="355" y="605" class="t">usertrapret / userret</text>
+  <rect x="45" y="570" width="180" height="58" rx="8" class="box u"/><text x="78" y="605" class="t">sret 回到用户 PC</text>
+  <path d="M225 149 H320" class="arrow"/><path d="M560 149 H650" class="arrow"/><path d="M880 149 H1010" class="arrow"/><path d="M1110 178 V270" class="arrow"/><path d="M880 299 H1010" class="arrow"/><path d="M1110 328 V420" class="arrow"/><path d="M1010 449 H880" class="arrow"/><path d="M650 449 H560 V570" class="arrow"/><path d="M320 599 H225" class="arrow"/><path d="M135 570 V178" class="arrow"/>
+  <text x="235" y="137" class="small">scause=timer</text><text x="570" y="137" class="small">保存 31 个寄存器</text><text x="890" y="137" class="small">LAB2_TICK=2</text><text x="895" y="287" class="small">context 不等于 trapframe</text><text x="1125" y="410" class="small">CPU 独立 scheduler 栈</text><text x="245" y="588" class="small">恢复现场</text>
+</svg>
