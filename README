@@ -1,21 +1,80 @@
-lab1 初始代码骨架(自动生成)
-======================
-你所拥有的文件: kernel/kernel.ld(lab1 注释版)、kernel/riscv.h(底层硬件宏定义，完整)、
-               Makefile、kernel/course_sid.h(个性化参数文件，请勿修改)。
-需要你编写的代码: kernel/ 目录下五个核心文件 —— entry.S / start.c / console.c /
-                printf.c / main.c。
-第一步: 仔细阅读《实验说明书(lab1)》第 0 节的代码导读路线，完成设计笔记后再动手编写代码。
-初始预期现象: 骨架代码能够"构建成功"，但会输出一条链接器警告
-(warning: cannot find entry symbol _entry)——此时内核尚未包含具体的启动代码，
-直接运行 make qemu 屏幕无输出。正确编写 entry.S 后该警告将消失。
+# OS 实验（lab0-lab2）
 
-======================
-推荐 git 工作流(全学期常用基础指令)
-======================
-  git init && git add -A && git commit -m "baseline"   # 收到初始基线后，进行首次提交
-  git tag labN-start                                    # 每轮合并增量包后打上开始标签
-  git add -A && git commit -m "..."                     # 开发过程中阶段性提交
-  git archive --format=zip -o 提交-labN-<学号>.zip labN-submit   # 每轮实验验收前打包
-推荐做法: 建议创建私有远程仓库(校内代码平台/GitLab/Gitee 等)进行代码备份。
-若代码出现异常可通过 git reset --hard labN-start 恢复初始状态；定位"从哪次提交开始引入缺陷"可使用 git bisect。
-commit 历史虽不作统一打分，但在现场验收进行代码溯源和设计答辩时，是最清晰的自主开发记录佐证。
+学号：2024302111357
+
+本项目是在 RISC-V QEMU 环境下完成的操作系统实验，当前包含 lab0、lab1 和 lab2 的内容。
+
+## 实验内容
+
+- lab0：阅读 xv6 代码，整理 `echo hi` 的执行过程，完成控制流图、数据结构图和时钟中断流程图。
+- lab1：完成内核启动、M 态到 S 态切换、UART 轮询输出和基础 `printf`，实现学号 Banner 输出。
+- lab2：完成 trampoline 和 trap 处理、系统调用、UART 输入中断、输入缓冲、进程切换以及内嵌用户程序装载。
+
+## 目录说明
+
+```text
+kernel/       内核启动、陷阱、系统调用、进程和串口代码
+user/         Shell 及内嵌用户程序
+tests/        lab2 测试程序
+support/      串口测试脚本和测试说明
+docs/lab0/    lab0 图纸和设计笔记
+```
+
+## 编译和运行
+
+编译内核：
+
+```bash
+make clean
+make
+```
+
+启动 QEMU：
+
+```bash
+make qemu
+```
+
+启动后进入 `sh>`，可运行：
+
+```text
+hi
+spin
+badecall
+bufstorm
+```
+
+## 测试
+
+检查 Banner 预期输出格式：
+
+```bash
+python3 check_expect.py 2024302111357
+```
+
+串口自动化测试：
+
+```bash
+python3 support/inject_uart.py --tree . --script support/storm.txt
+```
+
+lab2 的两个测试程序分别用于检查非法系统调用和输入缓冲区边界。
+
+## 版本标签
+
+```text
+lab0-submit
+lab1-start
+lab1-submit
+lab2-start
+lab2-submit
+```
+
+实验归档包：
+
+```text
+提交-lab1-2024302111357.zip
+提交-lab2-2024302111357.zip
+```
+
+当前 lab2 使用 `satp=0` 的直映方式，用户程序以平铺二进制形式嵌入内核镜像，暂未实现后续实验中的 SV39 页表和文件系统。
