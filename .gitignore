@@ -12,3 +12,5 @@ user/usys.S
 *.sock
 __pycache__/
 .DS_Store
+kernel/kernel-sv39.ld
+提交-lab*.zip

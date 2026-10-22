@@ -1,4 +1,8 @@
+#ifndef PROC_H
+#define PROC_H
+
 #include "types.h"
+#include "riscv.h"
 #include "param.h"
 #include "memlayout.h"
 
@@ -49,13 +53,19 @@ struct proc {
   struct proc *parent;
   int exit_status;
   uint64 kstack_top;
-  struct trapframe tf;
-  uint image_size;
-  uint64 wait_addr;
-  int waiting;
+  struct trapframe *tf;
+  pagetable_t pagetable;
+  uint64 sz;
+  uint64 heap_base;
+  void *chan;
+  struct context {
+    uint64 ra, sp;
+    uint64 s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11;
+  } context;
   char name[16];
-  uchar image[USER_IMAGE_MAX];
 };
 
 extern struct proc proc_table[NPROC];
 extern struct proc *current_proc;
+
+#endif

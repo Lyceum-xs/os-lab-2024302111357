@@ -1,62 +1,71 @@
 #include "types.h"
+#include "course_sid.h"
+#include "param.h"
 #include "memlayout.h"
 #include "proc.h"
+#include "pagetable.h"
 #include "defs.h"
 
-extern char _uprog_table[];
-
-struct uprog_entry {
-  uint64 start;
-  uint64 end;
-  char name[1];
+struct uprog {
+  uint64 start, end, entry, writable, mem_end;
+  char name[32];
 };
-
-static uint64
-align8(uint64 x)
-{
-  return (x + 7) & ~7ull;
-}
+extern const struct uprog _uprog_table[];
 
 int
 kexec(const char *name)
 {
   struct proc *p = myproc();
-  uint64 cursor = (uint64)_uprog_table;
-  uint64 start;
-  uint64 end;
-  uint size;
-  char *entry_name;
-
-  if (p == 0)
-    return -1;
-  for (;;) {
-    start = *(uint64 *)cursor;
-    end = *(uint64 *)(cursor + sizeof(uint64));
-    cursor += 2 * sizeof(uint64);
-    if (start == 0 && end == 0)
-      return -1;
-    entry_name = (char *)cursor;
-    if (strcmp(entry_name, name) == 0)
+  const struct uprog *image;
+  for (image = _uprog_table; image->start; image++)
+    if (!strcmp(image->name, name))
       break;
-    cursor = align8(cursor + strlen(entry_name) + 1);
-    cursor = align8(cursor);
-    cursor = align8(cursor + (end - start));
-  }
-
-  if (end < start || end - start > USER_IMAGE_MAX)
+  if (!image->start || image->end < image->start ||
+      image->end - image->start > image->mem_end ||
+      image->writable % PGSIZE || image->entry >= image->writable ||
+      image->mem_end > PHYSTOP - KERNBASE)
     return -1;
-  size = (uint)(end - start);
-  memset(p->image, 0, USER_IMAGE_MAX);
-  memcpy(p->image, (void *)start, size);
-  p->image_size = USER_IMAGE_MAX;
-  p->tf.epc = USER_BASE;
-  p->tf.sp = USER_STACK_TOP;
-  p->tf.ra = 0;
-  p->tf.gp = 0;
-  p->tf.tp = 0;
-  p->tf.a0 = 0;
-  p->tf.a1 = 0;
-  p->tf.a2 = 0;
-  memcpy((void *)USER_BASE, p->image, USER_IMAGE_MAX);
+
+  pagetable_t table = uvmcreate((uint64)p->tf);
+  if (!table)
+    return -1;
+  uint64 bytes = image->end - image->start;
+  uint64 image_end = PGROUNDUP(image->mem_end);
+  for (uint64 a = 0; a < image_end; a += PGSIZE) {
+    void *page = kalloc();
+    if (!page)
+      goto fail;
+    if (a < bytes) {
+      uint64 n = bytes - a;
+      if (n > PGSIZE)
+        n = PGSIZE;
+      memcpy(page, (void *)(image->start + a), n);
+    }
+    int perm = PTE_R | PTE_U | (a < image->writable ? PTE_X : PTE_W);
+    if (mappages(table, a, PGSIZE, (uint64)page, perm) < 0) {
+      kfree(page);
+      goto fail;
+    }
+  }
+  uint64 stack_base = image_end + LAB3_GUARD_PAGES * PGSIZE;
+  uint64 stack_top = stack_base + USERSTACK * PGSIZE;
+  if (uvmgrow(table, stack_base, stack_top) < 0)
+    goto fail;
+
+  pagetable_t old = p->pagetable;
+  p->pagetable = table;
+  p->sz = p->heap_base = stack_top;
+  memset(p->tf, 0, sizeof(*p->tf));
+  p->tf->epc = image->entry;
+  p->tf->sp = stack_top;
+  memset(p->name, 0, sizeof(p->name));
+  uint n = strlen(name);
+  if (n >= sizeof(p->name))
+    n = sizeof(p->name) - 1;
+  memcpy(p->name, name, n);
+  uvmfree(old);
   return 0;
+fail:
+  uvmfree(table);
+  return -1;
 }

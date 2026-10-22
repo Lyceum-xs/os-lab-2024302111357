@@ -1,82 +1,74 @@
 #include "types.h"
-#include "memlayout.h"
 #include "proc.h"
+#include "vm.h"
 #include "defs.h"
 
-int
-sys_fork(void)
-{
-  return kfork();
-}
+uint64 sys_fork(void) { return kfork(); }
+uint64 sys_getpid(void) { return myproc()->pid; }
 
-int
+uint64
 sys_exit(void)
 {
   int status;
-  if (argint(0, &status) < 0)
-    status = -1;
+  argint(0, &status);
   kexit(status);
-  return -1;
 }
 
-int
+uint64
 sys_wait(void)
 {
   uint64 addr;
-  if (argaddr(0, &addr) < 0)
-    return -1;
+  argaddr(0, &addr);
   return kwait(addr);
 }
 
-int
+uint64
 sys_read(void)
 {
   int fd, n;
   uint64 addr;
-  if (argint(0, &fd) < 0 || argaddr(1, &addr) < 0 || argint(2, &n) < 0)
-    return -1;
+  argint(0, &fd);
+  argaddr(1, &addr);
+  argint(2, &n);
   if (fd != 0 || n < 0)
-    return -1;
+    return (uint64)-1;
   return consoleread(addr, n);
 }
 
-int
+uint64
 sys_write(void)
 {
   int fd, n;
   uint64 addr;
-  if (argint(0, &fd) < 0 || argaddr(1, &addr) < 0 || argint(2, &n) < 0)
-    return -1;
+  argint(0, &fd);
+  argaddr(1, &addr);
+  argint(2, &n);
   if ((fd != 1 && fd != 2) || n < 0)
-    return -1;
+    return (uint64)-1;
   return consolewrite(addr, n);
 }
 
-int
+uint64
 sys_exec(void)
 {
   char name[32];
-  int i;
   if (argstr(0, name, sizeof(name)) < 0)
-    return -1;
-  for (i = 0; name[i] != '\0'; i++) {
+    return (uint64)-1;
+  for (int i = 0; name[i]; i++)
     if (name[i] == '\n' || name[i] == '\r') {
       name[i] = '\0';
       break;
     }
-  }
   return kexec(name);
 }
 
-int
-sys_getpid(void)
+uint64
+sys_sbrk(void)
 {
-  struct proc *p = myproc();
-  return p == 0 ? -1 : p->pid;
-}
-
-int
-sys_unimplemented(void)
-{
-  return -1;
+  int n, mode;
+  argint(0, &n);
+  argint(1, &mode);
+  if (mode != SBRK_EAGER && mode != SBRK_LAZY)
+    return (uint64)-1;
+  return growproc(n);
 }

@@ -21,7 +21,7 @@ devintr(void)
 {
   uint64 scause = r_scause();
 
-  if (scause == (1ull << 63 | 5) || scause == (1ull << 63 | 7)) {
+  if (scause == (1ull << 63 | 5)) {
     timerintr();
     return 2;
   }
@@ -37,5 +37,5 @@ devintr(void)
   }
   if (irq != 0)
     *(volatile uint32 *)PLIC_SCLAIM(0) = irq;
-  return 0;
+  return 1;
 }

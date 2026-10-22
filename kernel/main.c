@@ -3,6 +3,7 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "defs.h"
+#include "pagetable.h"
 
 static void
 banner(void)
@@ -22,12 +23,15 @@ main(void)
   banner();
   consoleinit();
   trapinit();
+  kinit();
+#ifdef LAB3_SELFTEST
+  vmselftest();
+#endif
+  kvminit();
+  kvminithart();
   plicinit();
   plicinithart();
-  *(volatile uint64 *)CLINT_MTIMECMP(0) =
-      *(volatile uint64 *)CLINT_MTIME + 1000000;
   procinit();
   userinit();
-  intr_on();
   scheduler();
 }
