@@ -72,6 +72,8 @@ struct proc {
   int last_slice_ticks;
   int tickets;
   int tickets_set;
+  uint64 stride;
+  uint64 pass;
   uint64 kstack_top;
   struct trapframe *tf;
   pagetable_t pagetable;

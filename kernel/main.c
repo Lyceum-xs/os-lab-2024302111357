@@ -32,6 +32,9 @@ main(void)
   plicinit();
   plicinithart();
   procinit();
+#ifdef LAB4_SELFTEST
+  schedselftest();
+#endif
   userinit();
   scheduler();
 }

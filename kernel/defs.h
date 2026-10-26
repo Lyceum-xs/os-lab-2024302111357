@@ -44,6 +44,7 @@ int kschedstat(int, uint64, uint64);
 int ksetickets(int);
 void proc_exec_policy(struct proc *);
 int proc_tick(void);
+void schedselftest(void);
 void swtch(struct context *, struct context *);
 int kfork(void);
 void kexit(int) __attribute__((noreturn));

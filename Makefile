@@ -20,7 +20,7 @@ UPROGS += alt stride_cases schededge
 ULIB = user-flat/ulib.o user-flat/printf.o user-flat/usys.o user-flat/common.o
 
 .DEFAULT_GOAL := kernel/kernel
-.PHONY: clean qemu test test-kernel test-uart dump
+.PHONY: clean qemu test test-kernel test-uart test-lab4 test-policy test-sleep test-sched-kernel dump
 .SECONDARY:
 
 kernel/kernel: $(OBJS) kernel/kernel-sv39.ld
@@ -36,7 +36,7 @@ kernel/%.o: kernel/%.S
 	$(CC) $(CFLAGS) -Ikernel -c -o $@ $<
 
 qemu: kernel/kernel
-	$(QEMU) -machine virt -bios none -kernel kernel/kernel -nographic
+	$(QEMU) -machine virt -bios none -kernel kernel/kernel -m 128M -smp 1 -nographic
 
 user/usys.S: user/usys.pl kernel/syscall.h
 	perl user/usys.pl > $@
@@ -71,6 +71,22 @@ fs.img:
 
 test-uart: kernel/kernel fs.img
 	$(PYTHON) support/inject_uart.py --tree . --script support/storm.txt --log inject_uart.log
+
+test-lab4: kernel/kernel
+	$(PYTHON) support/test_lab4.py
+
+test-policy: kernel/kernel
+	$(PYTHON) support/test_lab4.py --policy-only
+
+test-sleep: kernel/kernel
+	$(PYTHON) support/test_lab4.py --sleep-only
+
+test-sched-kernel:
+	$(MAKE) clean
+	$(MAKE) EXTRA_CFLAGS=-DLAB4_SELFTEST kernel/kernel
+	$(PYTHON) support/test_lab4.py --kernel-only
+	$(MAKE) clean
+	$(MAKE) kernel/kernel
 
 test-kernel:
 	$(MAKE) clean

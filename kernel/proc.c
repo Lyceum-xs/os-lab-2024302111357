@@ -7,12 +7,18 @@
 #include "defs.h"
 
 #define KSTACK_SIZE (1024 * LAB1_STACK_KB)
+#define STRIDE_SCALE (1000ULL << 32)
+#if LAB4_POLICY_ID != 7
+#error This scheduler implements course policy 7.
+#endif
 struct proc proc_table[NPROC];
 struct cpu cpus[NCPU];
 static uchar kstacks[NPROC][KSTACK_SIZE] __attribute__((aligned(16)));
 static struct spinlock wait_lock, pid_lock;
 static struct proc *initproc;
 static int nextpid = 1;
+/* Single-core scheduler clock; access only with interrupts disabled. */
+static uint64 virtual_time;
 extern char trampoline[], userret[];
 
 typedef char check_tf_a0[__builtin_offsetof(struct trapframe, a0) == 112 ? 1 : -1];
@@ -46,6 +52,7 @@ freeproc(struct proc *p)
   p->cpu_ticks = p->last_slice_ticks = 0;
   p->tickets = 1;
   p->tickets_set = 0;
+  p->stride = p->pass = 0;
   p->sz = p->heap_base = 0;
   p->chan = 0;
   memset(&p->context, 0, sizeof(p->context));
@@ -103,6 +110,8 @@ allocproc(void)
     p->pid = nextpid++;
     release(&pid_lock);
     p->tickets = 1;
+    p->stride = STRIDE_SCALE;
+    p->pass = virtual_time;
     p->tf = kalloc();
     if (!p->tf || !(p->pagetable = uvmcreate((uint64)p->tf))) {
       freeproc(p);
@@ -134,6 +143,42 @@ userinit(void)
   release(&p->lock);
 }
 
+static void
+normalize_passes(void)
+{
+  if (virtual_time < (1ULL << 60))
+    return;
+  for (int i = 0; i < NPROC; i++) {
+    struct proc *p = &proc_table[i];
+    acquire(&p->lock);
+    p->pass = p->pass > virtual_time ? p->pass - virtual_time : 0;
+    release(&p->lock);
+  }
+  virtual_time = 0;
+}
+
+static struct proc *
+chooseproc(struct cpu *c)
+{
+  struct proc *chosen = 0;
+  uint64 best = ~0ULL;
+  int next = 0;
+  for (int offset = 0; offset < NPROC; offset++) {
+    int i = (c->rr_idx + offset) % NPROC;
+    struct proc *p = &proc_table[i];
+    acquire(&p->lock);
+    if (p->state == RUNNABLE && (!chosen || p->pass < best)) {
+      chosen = p;
+      best = p->pass;
+      next = (i + 1) % NPROC;
+    }
+    release(&p->lock);
+  }
+  if (chosen)
+    c->rr_idx = next;
+  return chosen;
+}
+
 void
 scheduler(void)
 {
@@ -141,27 +186,23 @@ scheduler(void)
   for (;;) {
     intr_on();
     intr_off();
-    int ran = 0;
-    for (int offset = 0; offset < NPROC; offset++) {
-      int i = (c->rr_idx + offset) % NPROC;
-      struct proc *p = &proc_table[i];
-      acquire(&p->lock);
-      if (p->state != RUNNABLE) {
-        release(&p->lock);
-        continue;
-      }
-      c->rr_idx = (i + 1) % NPROC;
-      c->proc = p;
-      p->state = RUNNING;
-      p->last_slice_ticks = 0;
-      swtch(&c->context, &p->context);
+    normalize_passes();
+    struct proc *chosen = chooseproc(c);
+    if (chosen) {
+      acquire(&chosen->lock);
+      if (chosen->state != RUNNABLE)
+        panic("scheduler candidate");
+      virtual_time = chosen->pass;
+      chosen->pass += chosen->stride;
+      c->proc = chosen;
+      chosen->state = RUNNING;
+      chosen->last_slice_ticks = 0;
+      swtch(&c->context, &chosen->context);
       c->proc = 0;
-      release(&p->lock);
-      ran = 1;
-      break;
-    }
-    if (!ran)
+      release(&chosen->lock);
+    } else {
       asm volatile("wfi");
+    }
   }
 }
 
@@ -217,8 +258,11 @@ wakeup(void *chan)
     if (p == self)
       continue;
     acquire(&p->lock);
-    if (p->state == SLEEPING && p->chan == chan)
+    if (p->state == SLEEPING && p->chan == chan) {
+      if (p->pass < virtual_time)
+        p->pass = virtual_time;
       p->state = RUNNABLE;
+    }
     release(&p->lock);
   }
 }
@@ -242,6 +286,7 @@ kfork(void)
   memcpy(child->name, parent->name, sizeof(child->name));
   child->tickets = parent->tickets;
   child->tickets_set = parent->tickets_set;
+  child->stride = parent->stride;
   int pid = child->pid;
   release(&child->lock);
   acquire(&wait_lock);
@@ -303,6 +348,7 @@ kexit(int status)
       wakeup(initproc);
     }
   }
+  /* wait_lock prevents the parent from checking until ZOMBIE is visible. */
   wakeup(p->parent);
   acquire(&p->lock);
   p->exit_status = status;
@@ -352,8 +398,9 @@ procdump(void)
     struct proc *q = &proc_table[i];
     acquire(&q->lock);
     if (q->state != UNUSED)
-      printf("PROC pid=%d name=%s state=%s tickets=%d cpu=%d slice=%d\n",
-             q->pid, q->name, states[q->state], q->tickets, q->cpu_ticks, q->last_slice_ticks);
+      printf("PROC pid=%d name=%s state=%s tickets=%d cpu=%d slice=%d pass=%x\n",
+             q->pid, q->name, states[q->state], q->tickets, q->cpu_ticks,
+             q->last_slice_ticks, q->pass);
     release(&q->lock);
   }
 }
@@ -375,8 +422,11 @@ kkill(int pid)
     acquire(&p->lock);
     if (p->pid == pid && p != initproc && p->state != UNUSED && p->state != ZOMBIE) {
       p->killed = 1;
-      if (p->state == SLEEPING)
+      if (p->state == SLEEPING) {
+        if (p->pass < virtual_time)
+          p->pass = virtual_time;
         p->state = RUNNABLE;
+      }
       release(&p->lock);
       return 0;
     }
@@ -405,6 +455,8 @@ proc_exec_policy(struct proc *p)
     panic("exec policy lock");
   if (!p->tickets_set)
     p->tickets = !strcmp(p->name, "sh") ? 4 : !strcmp(p->name, "spin") ? 2 : 1;
+  p->stride = STRIDE_SCALE / p->tickets;
+  p->pass = virtual_time;
 }
 
 int
@@ -416,6 +468,8 @@ ksetickets(int value)
   acquire(&p->lock);
   p->tickets = value;
   p->tickets_set = 1;
+  p->stride = STRIDE_SCALE / value;
+  p->pass = virtual_time;
   release(&p->lock);
   return 0;
 }
@@ -444,3 +498,105 @@ kschedstat(int pid, uint64 cpuaddr, uint64 sliceaddr)
   }
   return -1;
 }
+
+#ifdef LAB4_SELFTEST
+static void
+policy_check(int ok, const char *message)
+{
+  if (!ok)
+    panic(message);
+}
+
+void
+schedselftest(void)
+{
+  struct cpu *c = mycpu();
+  struct proc *p[3];
+  const char *names[] = {"hi", "spin", "sh"};
+  int counts[3] = {0};
+  uint free_before = kfreepages();
+  for (int i = 0; i < 3; i++) {
+    p[i] = allocproc();
+    policy_check(p[i] != 0, "policy test alloc");
+    memcpy(p[i]->name, names[i], strlen(names[i]) + 1);
+    proc_exec_policy(p[i]);
+    policy_check(p[i]->tickets == (1 << i), "policy default tickets");
+    p[i]->state = RUNNABLE;
+    release(&p[i]->lock);
+  }
+  /* Exercise the actual picker for all three named defaults. */
+  for (int round = 0; round < 700; round++) {
+    struct proc *chosen = chooseproc(c);
+    policy_check(chosen != 0, "policy pick");
+    acquire(&chosen->lock);
+    virtual_time = chosen->pass;
+    chosen->pass += chosen->stride;
+    for (int i = 0; i < 3; i++)
+      if (chosen == p[i])
+        counts[i]++;
+    release(&chosen->lock);
+  }
+  policy_check(counts[0] == 100 && counts[1] == 200 && counts[2] == 400,
+               "policy named shares");
+  printf("SCHEDTEST named dispatches=%d:%d:%d PASS\n", counts[0], counts[1], counts[2]);
+
+  c->proc = p[0];
+  policy_check(ksetickets(0x7fffffff) == 0 && p[0]->stride > 0,
+               "policy large tickets");
+  acquire(&p[0]->lock);
+  memcpy(p[0]->name, "sh", 3);
+  proc_exec_policy(p[0]);
+  policy_check(p[0]->tickets == 0x7fffffff, "exec overrides explicit tickets");
+  release(&p[0]->lock);
+  int childpid = kfork();
+  policy_check(childpid > 0, "policy fork");
+  acquire(&wait_lock);
+  for (int i = 0; i < NPROC; i++) {
+    struct proc *child = &proc_table[i];
+    acquire(&child->lock);
+    if (child->pid == childpid) {
+      policy_check(child->tickets_set && child->tickets == p[0]->tickets &&
+                   child->cpu_ticks == 0, "fork tickets and counters");
+      freeproc(child);
+    }
+    release(&child->lock);
+  }
+  release(&wait_lock);
+  c->proc = 0;
+
+  uint64 floor = (1ULL << 60) + 100;
+  virtual_time = floor;
+  acquire(&p[0]->lock);
+  p[0]->state = SLEEPING;
+  p[0]->chan = p;
+  p[0]->pass = 0;
+  release(&p[0]->lock);
+  wakeup(p);
+  policy_check(p[0]->pass == floor, "wakeup stale pass");
+  struct proc *fresh = allocproc();
+  policy_check(fresh && fresh->pass == floor, "new process stale pass");
+  freeproc(fresh);
+  release(&fresh->lock);
+  for (int i = 0; i < 3; i++) {
+    acquire(&p[i]->lock);
+    p[i]->pass = floor + i * 10;
+    release(&p[i]->lock);
+  }
+  normalize_passes();
+  policy_check(virtual_time == 0 && p[0]->pass == 0 &&
+               p[1]->pass == 10 && p[2]->pass == 20, "pass normalization");
+  acquire(&wait_lock);
+  for (int i = 0; i < 3; i++) {
+    acquire(&p[i]->lock);
+    freeproc(p[i]);
+    release(&p[i]->lock);
+  }
+  release(&wait_lock);
+  c->rr_idx = 0;
+  nextpid = 1;
+  policy_check(kfreepages() == free_before && c->noff == 0,
+               "policy test resources");
+  printf("SCHEDTEST overrides inheritance wakeup normalization PASS\n");
+  printf("SCHEDTEST all PASS\n");
+}
+#endif
