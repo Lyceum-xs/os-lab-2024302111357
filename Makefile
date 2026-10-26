@@ -8,14 +8,15 @@ CFLAGS = -Wall -Werror -O -std=gnu99 -mcmodel=medany -ffreestanding \
          -nostdlib -fno-common -ggdb -march=rv64gc -fno-stack-protector \
          -fno-pie -msmall-data-limit=0 -MMD -MP
 CFLAGS += $(EXTRA_CFLAGS)
-UFLAGS = $(CFLAGS) -I. -Iuser
+UFLAGS = $(CFLAGS) -I. -Iuser -DSID=2024302111357UL
 OBJS = kernel/entry.o kernel/start.o kernel/main.o kernel/string.o \
        kernel/console.o kernel/printf.o kernel/uart.o kernel/plic.o \
        kernel/trap.o kernel/proc.o kernel/syscall.o kernel/sysproc.o \
        kernel/exec.o kernel/trampoline.o kernel/userimg.o kernel/swtch.o \
        kernel/kernelvec.o kernel/kalloc.o kernel/vm.o kernel/vmtest.o
 UPROGS = sh hi spin badecall bufstorm badaccess memcap vmguard vmcopy vmstress vmconcurrent
-ULIB = user-flat/ulib.o user-flat/printf.o user-flat/usys.o
+UPROGS += bench lottery_test stride_test
+ULIB = user-flat/ulib.o user-flat/printf.o user-flat/usys.o user-flat/common.o
 
 .DEFAULT_GOAL := kernel/kernel
 .PHONY: clean qemu test test-kernel test-uart dump
