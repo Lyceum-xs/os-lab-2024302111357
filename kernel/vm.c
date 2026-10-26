@@ -5,7 +5,7 @@
 #include "defs.h"
 
 #define LEAF (PTE_R | PTE_W | PTE_X)
-/* RSW bit used only while a mapping transaction holds interrupts disabled. */
+/* RSW bit belongs to this single-core, non-preemptible kernel transaction. */
 #define PTE_NEW (1UL << 8)
 pagetable_t kernel_pagetable;
 extern char trampoline[], kernel_text_end[];

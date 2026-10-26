@@ -52,6 +52,7 @@ kexec(const char *name)
   if (uvmgrow(table, stack_base, stack_top) < 0)
     goto fail;
 
+  acquire(&p->lock);
   pagetable_t old = p->pagetable;
   p->pagetable = table;
   p->sz = p->heap_base = stack_top;
@@ -63,6 +64,8 @@ kexec(const char *name)
   if (n >= sizeof(p->name))
     n = sizeof(p->name) - 1;
   memcpy(p->name, name, n);
+  proc_exec_policy(p);
+  release(&p->lock);
   uvmfree(old);
   return 0;
 fail:

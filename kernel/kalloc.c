@@ -3,17 +3,20 @@
 #include "memlayout.h"
 #include "course_sid.h"
 #include "defs.h"
+#include "spinlock.h"
 
 #define MAXPAGES ((PHYSTOP - KERNBASE) / PGSIZE)
 static uint64 freebits[MAXPAGES / 64];
 static uint64 first_page;
 static uint npages, available;
 static int highest;
+static struct spinlock memlock;
 extern char kernel_end[];
 
 void
 kinit(void)
 {
+  initlock(&memlock, "physical pages");
   first_page = PGROUNDUP((uint64)kernel_end);
   uint64 limit = PHYSTOP - (uint64)LAB3_MEMCAP_DELTA * PGSIZE;
   if (first_page >= limit)
@@ -29,7 +32,10 @@ kinit(void)
 uint
 kfreepages(void)
 {
-  return available;
+  acquire(&memlock);
+  uint count = available;
+  release(&memlock);
+  return count;
 }
 
 uint
@@ -41,8 +47,11 @@ ktotalpages(void)
 void *
 kalloc(void)
 {
-  if (!available)
+  acquire(&memlock);
+  if (!available) {
+    release(&memlock);
     return 0;
+  }
   uint index = 0;
 #if LAB3_ALLOC_ORDER == 1
   while (highest >= 0 && !freebits[highest])
@@ -70,6 +79,7 @@ kalloc(void)
 #endif
   freebits[index / 64] &= ~(1UL << (index % 64));
   available--;
+  release(&memlock);
   void *page = (void *)(first_page + (uint64)index * PGSIZE);
   memset(page, 0, PGSIZE);
   return page;
@@ -84,6 +94,7 @@ kfree(void *page)
     panic("kfree range");
   uint index = (pa - first_page) / PGSIZE;
   uint64 bit = 1UL << (index % 64);
+  acquire(&memlock);
   if (freebits[index / 64] & bit)
     panic("kfree twice");
   memset(page, 1, PGSIZE);
@@ -91,4 +102,5 @@ kfree(void *page)
   if ((int)(index / 64) > highest)
     highest = index / 64;
   available++;
+  release(&memlock);
 }

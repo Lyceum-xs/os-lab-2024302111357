@@ -5,6 +5,20 @@
 #include "riscv.h"
 #include "param.h"
 #include "memlayout.h"
+#include "spinlock.h"
+
+struct context {
+  uint64 ra, sp;
+  uint64 s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11;
+};
+
+struct cpu {
+  struct context context;
+  struct proc *proc;
+  int noff;
+  int intena;
+  uint rr_idx;
+};
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
@@ -48,24 +62,27 @@ struct trapframe {
 };
 
 struct proc {
+  struct spinlock lock;
   int pid;
   enum procstate state;
   struct proc *parent;
   int exit_status;
+  int killed;
+  int cpu_ticks;
+  int last_slice_ticks;
+  int tickets;
+  int tickets_set;
   uint64 kstack_top;
   struct trapframe *tf;
   pagetable_t pagetable;
   uint64 sz;
   uint64 heap_base;
   void *chan;
-  struct context {
-    uint64 ra, sp;
-    uint64 s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11;
-  } context;
+  struct context context;
   char name[16];
 };
 
 extern struct proc proc_table[NPROC];
-extern struct proc *current_proc;
+extern struct cpu cpus[NCPU];
 
 #endif

@@ -7,25 +7,51 @@
 #include "defs.h"
 
 extern char trampoline[], uservec[], kernelvec[];
-static uint timer_ticks;
+static uint ticks;
+static struct spinlock tickslock;
 
 void
 trapinit(void)
 {
+  initlock(&tickslock, "ticks");
   w_stvec((uint64)kernelvec);
 }
 
 void
 timerintr(void)
 {
-  timer_ticks++;
   w_stimecmp(r_time() + 100000);
+  acquire(&tickslock);
+  ticks++;
+  wakeup(&ticks);
+  release(&tickslock);
 }
 
 int
-timer_should_yield(void)
+pause_ticks(int n)
 {
-  return timer_ticks % LAB2_TICK == 0;
+  if (n < 0)
+    return -1;
+  acquire(&tickslock);
+  uint start = ticks;
+  while ((uint)(ticks - start) < (uint)n) {
+    if (killed(myproc())) {
+      release(&tickslock);
+      return -1;
+    }
+    sleep(&ticks, &tickslock);
+  }
+  release(&tickslock);
+  return 0;
+}
+
+uint
+uptime_ticks(void)
+{
+  acquire(&tickslock);
+  uint value = ticks;
+  release(&tickslock);
+  return value;
 }
 
 uint64
@@ -53,15 +79,20 @@ usertrap(void)
   uint64 cause = r_scause();
   int device = 0;
   if (cause == 8) {
+    if (killed(p))
+      kexit(-1);
     p->tf->epc += 4;
+    intr_on();
     syscall();
   } else if (!(device = devintr())) {
     printf("USER-FAULT pid=%d cause=%x epc=%x va=%x\n",
            p->pid, cause, p->tf->epc, r_stval());
     kexit(-1);
   }
-  if (device == 2 && timer_should_yield())
+  if (device == 2 && proc_tick())
     yield();
+  if (killed(p))
+    kexit(-1);
   return prepare_return(p);
 }
 

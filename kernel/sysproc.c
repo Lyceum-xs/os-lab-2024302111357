@@ -72,3 +72,41 @@ sys_sbrk(void)
     return (uint64)-1;
   return growproc(n);
 }
+
+uint64
+sys_pause(void)
+{
+  int n;
+  argint(0, &n);
+  return pause_ticks(n);
+}
+
+uint64
+sys_kill(void)
+{
+  int pid;
+  argint(0, &pid);
+  return kkill(pid);
+}
+
+uint64 sys_uptime(void) { return uptime_ticks(); }
+uint64 sys_time_rdtime(void) { return r_time(); }
+
+uint64
+sys_setickets(void)
+{
+  int value;
+  argint(0, &value);
+  return ksetickets(value);
+}
+
+uint64
+sys_schedstat(void)
+{
+  int pid;
+  uint64 cpu, slice;
+  argint(0, &pid);
+  argaddr(1, &cpu);
+  argaddr(2, &slice);
+  return kschedstat(pid, cpu, slice);
+}

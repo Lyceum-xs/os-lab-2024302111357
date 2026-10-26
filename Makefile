@@ -13,9 +13,10 @@ OBJS = kernel/entry.o kernel/start.o kernel/main.o kernel/string.o \
        kernel/console.o kernel/printf.o kernel/uart.o kernel/plic.o \
        kernel/trap.o kernel/proc.o kernel/syscall.o kernel/sysproc.o \
        kernel/exec.o kernel/trampoline.o kernel/userimg.o kernel/swtch.o \
-       kernel/kernelvec.o kernel/kalloc.o kernel/vm.o kernel/vmtest.o
+       kernel/kernelvec.o kernel/kalloc.o kernel/vm.o kernel/vmtest.o kernel/spinlock.o
 UPROGS = sh hi spin badecall bufstorm badaccess memcap vmguard vmcopy vmstress vmconcurrent
 UPROGS += bench lottery_test stride_test
+UPROGS += alt stride_cases schededge
 ULIB = user-flat/ulib.o user-flat/printf.o user-flat/usys.o user-flat/common.o
 
 .DEFAULT_GOAL := kernel/kernel
