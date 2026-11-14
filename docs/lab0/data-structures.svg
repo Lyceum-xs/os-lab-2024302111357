@@ -1,10 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="900" viewBox="0 0 1500 900">
-  <style>.title{font:700 28px sans-serif;fill:#17212b}.head{font:700 18px sans-serif;fill:#17212b}.box{fill:#f5f8fb;stroke:#526777;stroke-width:2}.u{fill:#e9f5ff}.s{fill:#fff3df}.r{fill:#eaf8ef}.t{font:16px sans-serif;fill:#17212b}.small{font:14px sans-serif;fill:#526777}.arrow{stroke:#2f5d7c;stroke-width:2.5;fill:none;marker-end:url(#a)}</style>
-  <defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 z" fill="#2f5d7c"/></marker></defs>
-  <text x="40" y="45" class="title">lab0 任务二：exec 完成后的数据结构快照</text>
-  <text x="60" y="95" class="head">进程表</text><rect x="50" y="115" width="380" height="230" rx="8" class="box s"/><text x="75" y="150" class="t">Shell: RUNNING / wait 子进程</text><text x="75" y="185" class="t">echo: RUNNABLE 或 RUNNING</text><text x="75" y="220" class="t">pid / parent / state / sz</text><text x="75" y="255" class="t">pagetable → echo 页表</text><text x="75" y="290" class="t">trapframe → TRAPFRAME</text><text x="75" y="325" class="small">每个进程拥有独立内核栈和 context</text>
-  <text x="540" y="95" class="head">echo 用户地址空间</text><rect x="510" y="115" width="420" height="620" rx="8" class="box u"/><rect x="550" y="150" width="340" height="60" class="r"/><text x="650" y="187" class="t">TRAMPOLINE：RX，双重映射</text><rect x="550" y="220" width="340" height="60" class="s"/><text x="665" y="257" class="t">TRAPFRAME：RW</text><rect x="550" y="310" width="340" height="80" class="u"/><text x="680" y="347" class="t">用户栈：RWU</text><rect x="550" y="400" width="340" height="60" class="box"/><text x="700" y="437" class="t">guard page：无 PTE</text><rect x="550" y="470" width="340" height="100" class="u"/><text x="675" y="510" class="t">heap / data / bss：RWU</text><rect x="550" y="580" width="340" height="100" class="u"/><text x="675" y="620" class="t">text / rodata：RXU / RU</text><text x="585" y="710" class="small">低地址从 0 开始；高地址固定放 trap 结构</text>
-  <text x="1030" y="95" class="head">文件描述符与设备</text><rect x="1000" y="115" width="430" height="230" rx="8" class="box s"/><text x="1030" y="155" class="t">echo.ofile[0] → console file</text><text x="1030" y="195" class="t">echo.ofile[1] → console file</text><text x="1030" y="235" class="t">echo.ofile[2] → console file</text><text x="1030" y="280" class="t">file → inode/device → UART</text><text x="1030" y="320" class="small">write(1) 最终进入 consolewrite</text>
-  <rect x="1000" y="430" width="430" height="200" rx="8" class="box r"/><text x="1030" y="470" class="t">PTE 权限检查</text><text x="1030" y="510" class="t">V：映射有效</text><text x="1030" y="550" class="t">R/W/X：读写执行</text><text x="1030" y="590" class="t">U：允许用户态访问</text>
-  <path d="M430 230 H510" class="arrow"/><path d="M930 250 H1000" class="arrow"/><path d="M930 600 H1000" class="arrow"/><text x="445" y="218" class="small">pagetable</text><text x="945" y="238" class="small">ofile</text><text x="945" y="588" class="small">权限约束</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="960" viewBox="0 0 1440 960">
+<style>text{font:20px sans-serif;fill:#182329}.h{font-size:30px;font-weight:bold}.n{fill:#ac3030} rect{fill:#f2f6f7;stroke:#6d858c}</style>
+<rect width="1440" height="960" fill="white"/><text x="40" y="55" class="h">lab0 · exec 成功后的进程与地址空间</text>
+<text x="40" y="95">左侧为 xv6 参考树；右侧红字区分课程内核后续实现，不能混用保护页语义。</text>
+<rect x="40" y="130" width="630" height="190"/>
+<text x="60" y="170">proc：pid / parent / state / sz / pagetable / tf</text>
+<text x="60" y="210">echo 正执行：RUNNING；父 sh 在 wait 中：SLEEPING</text>
+<text x="60" y="250">每进程内核栈 + context；CPU 独立 scheduler context</text>
+<text x="60" y="290">trapframe：31 个用户寄存器 + kernel_sp/satp/trap</text>
+<rect x="40" y="350" width="630" height="410"/>
+<text x="60" y="390">用户虚拟地址从高到低（V=1，除另行注明）</text>
+<text x="60" y="440">TRAMPOLINE：R=1 X=1 U=0，同址双重映射</text>
+<text x="60" y="480">TRAPFRAME：R=1 W=1 U=0，每进程私有</text>
+<text x="60" y="520">堆：从初始 sz 向上增长，R=1 W=1 U=1</text>
+<text x="60" y="560">用户栈：R=1 W=1 U=1；sp 向低地址增长</text>
+<text x="60" y="600">guard：已分配且 V=1；uvmclear 清除 U 位</text>
+<text x="60" y="640">data / bss：R=1 W=1 U=1</text>
+<text x="60" y="680">text / rodata：按 ELF 段标志设置 R/W/X，U=1</text>
+<text x="60" y="725">exec 先构建新页表与 argv 栈，成功再交换并释放旧表。</text>
+<rect x="720" y="130" width="680" height="190"/>
+<text x="740" y="170">文件描述符关系</text>
+<text x="740" y="210">sh.ofile[0..2] 与 echo.ofile[0..2]</text>
+<text x="740" y="250">→ 共享 file（引用计数）→ inode / device</text>
+<text x="740" y="290">→ 控制台设备驱动 → UART</text>
+<rect x="720" y="350" width="680" height="410"/>
+<text x="740" y="390" class="n">2026-11-14 修正与课程 lab3 对照</text>
+<text x="740" y="440" class="n">旧图“guard 无 PTE”不适用于参考 xv6。</text>
+<text x="740" y="480">本课程 lab3：data 后两页无映射，再放一页栈。</text>
+<text x="740" y="520">sh 实例：text 0x0，data 0x1000，</text>
+<text x="740" y="560">guard 0x2000/0x3000，stack 0x4000。</text>
+<text x="740" y="600">课程内核无 file/inode，fd 0/1/2 直接接控制台。</text>
+<text x="740" y="640">lab5 的 argv 地址和 COW 演进见同目录</text>
+<text x="740" y="680">02-exec数据结构快照.md（按实测更新）。</text>
+<text x="740" y="725">页表 V/R/W/X/U 权限不得从图形位置自行推断。</text>
+<text x="40" y="820" class="n">批注：trampoline 必须在用户/内核页表中以同一 VA 映射同一 PA，否则写 satp 后下一次取指失败。</text>
+<text x="40" y="865" class="n">批注：guard 的核心是用户不能访问；“有效但 U=0”和“根本未映射”是两种不同实现。</text>
+<text x="40" y="920">依据：xv6 kernel/exec.c 的 uvmclear 调用与 kernel/vm.c 的清 U 操作；课程内核 kernel/exec.c。</text>
 </svg>

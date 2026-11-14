@@ -17,11 +17,19 @@ OBJS = kernel/entry.o kernel/start.o kernel/main.o kernel/string.o \
 UPROGS = sh hi spin badecall bufstorm badaccess memcap vmguard vmcopy vmstress vmconcurrent
 UPROGS += bench lottery_test stride_test
 UPROGS += alt stride_cases schededge
+UPROGS += ioedge
 ULIB = user-flat/ulib.o user-flat/printf.o user-flat/usys.o user-flat/common.o
 
 .DEFAULT_GOAL := kernel/kernel
 .PHONY: clean qemu test test-kernel test-uart test-lab4 test-policy test-sleep test-sched-kernel dump
 .SECONDARY:
+
+.PHONY: test-lab1 test-lab2
+test-lab1:
+	$(PYTHON) support/test_lab1.py
+
+test-lab2: kernel/kernel
+	$(PYTHON) support/test_lab2.py
 
 kernel/kernel: $(OBJS) kernel/kernel-sv39.ld
 	$(LD) -T kernel/kernel-sv39.ld -o $@ $(OBJS)

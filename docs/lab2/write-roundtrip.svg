@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760">
+<style>text{font:22px sans-serif;fill:#182329}.h{font-size:30px;font-weight:bold}rect{fill:#f2f6f7;stroke:#6d858c}</style>
+<rect width="1400" height="760" fill="white"/><text x="40" y="55" class="h">lab2 · write 系统调用完整往返</text>
+<rect x="40" y="100" width="1320" height="90"/><text x="65" y="135">1. U / 用户栈：a0=fd，a1=buf，a2=n，a7=SYS_write → ecall</text><text x="65" y="170">硬件只改 sepc/scause/sstatus/stvec 控制流；通用寄存器与 sp 原样保留。</text>
+<rect x="40" y="220" width="1320" height="90"/><text x="65" y="255">2. S / 尚用用户 sp：uservec 经 sscratch 找 trapframe，保存 ra/sp/a0…t6</text><text x="65" y="290">从 tf 取 kernel_sp、kernel_satp、kernel_trap，切到进程内核栈后调用 usertrap。</text>
+<rect x="40" y="340" width="1320" height="90"/><text x="65" y="375">3. S / 进程内核栈：epc += 4；syscall 按 a7 分发 → sys_write → consolewrite</text><text x="65" y="410">取 a0/a1/a2；校验 fd 与长度，复制用户缓冲；持 cons.lock 输出 UART。</text>
+<rect x="40" y="460" width="1320" height="90"/><text x="65" y="495">4. S / 进程内核栈：tf.a0=返回字节数（失败 -1）；prepare_return 设置 SPP=0、SPIE=1</text><text x="65" y="530">sepc=tf.epc；stvec=uservec；tf 中预置下次陷入需要的内核入口、栈、页表。</text>
+<rect x="40" y="580" width="1320" height="90"/><text x="65" y="615">5. S → U：userret 切用户页表并 sfence.vma，恢复用户寄存器与 sp → sret</text><text x="65" y="650">回到 ecall 后一条指令，用户从 a0 取得结果；用户栈与进程内核栈分开。</text>
+<text x="40" y="725">版本区分：lab2 satp=0，lab3 后真正启用两套 SV39 页表；图中页表步骤描述现行实现。</text>
+</svg>

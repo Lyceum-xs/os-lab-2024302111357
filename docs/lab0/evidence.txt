@@ -1,0 +1,12 @@
+2026-11-14 / supplied xv6 / QEMU virt -smp 1 -snapshot
+
+xv6 kernel is booting
+
+init: starting sh
+$ echo hi
+hi
+$
+Representative hardware traps:
+riscv_cpu_do_interrupt: hart:0, async:1, cause:0000000000000005, epc:0x0000000080001dea, tval:0x0000000000000000, desc=s_timer
+riscv_cpu_do_interrupt: hart:0, async:1, cause:0000000000000009, epc:0x0000000080001dea, tval:0x0000000000000000, desc=s_external
+riscv_cpu_do_interrupt: hart:0, async:0, cause:0000000000000008, epc:0x00000000000003b4, tval:0x0000000000000000, desc=user_ecall

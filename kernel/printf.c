@@ -58,6 +58,8 @@ vprintf(const char *fmt, va_list ap)
       continue;
     }
     c = *++fmt;
+    if (!c)
+      break;
     if (c == 'd') {
       printint(va_arg(ap, int), 10, 1);
     } else if (c == 'x') {

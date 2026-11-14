@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="780" viewBox="0 0 1400 780">
+<style>text{font:22px sans-serif;fill:#182329}.h{font-size:30px;font-weight:bold}.n{fill:#ac3030}rect{fill:#f2f6f7;stroke:#6d858c}</style>
+<rect width="1400" height="780" fill="white"/><text x="40" y="55" class="h">lab2 · 键盘中断、缓冲提交与 Shell 唤醒</text>
+<rect x="40" y="100" width="1320" height="90"/><text x="65" y="138">Shell read → S / Shell 内核栈：持 cons.lock 检查 r==w，缓冲为空</text><text x="65" y="175">现行 sleep(&amp;cons.r, &amp;cons.lock)：先取 p.lock → 释放 cons.lock → SLEEPING → sched。</text>
+<rect x="40" y="220" width="1320" height="90"/><text x="65" y="258">键盘 → UART RBR / IER → PLIC 优先级与 enable → sie.SEIE → sstatus.SIE</text><text x="65" y="295">U 被打断走 uservec；S 被打断走 kernelvec。都在被打断执行流对应的内核栈处理。</text>
+<rect x="40" y="340" width="1320" height="90"/><text x="65" y="378">devintr → plic_claim → uartintr → consoleintr；持 cons.lock 写 buf[e % 64]，e++</text><text x="65" y="415">字符流每字节 w=e；行缓冲只在换行或满缓冲时提交。满缓冲丢弃新字节，旧数据不变。</text>
+<rect x="40" y="460" width="1320" height="90"/><text x="65" y="498">wakeup(&amp;cons.r)：持 p.lock 找 SLEEPING 且 chan 匹配者 → RUNNABLE</text><text x="65" y="535">释放相关锁，plic_complete；唤醒只改变就绪状态，不在中断内直接运行 Shell。</text>
+<rect x="40" y="580" width="1320" height="90"/><text x="65" y="618">调度器栈 → swtch 到 Shell 内核栈 → sleep 重新获取 cons.lock → 再查 r/w</text><text x="65" y="655">copyout 后推进 r，read 返回 → U / Shell 用户栈 → 解析命令。</text>
+<text x="40" y="718" class="n">批注：若先释放 cons.lock 后才取得 p.lock，UART 可在登记 SLEEPING 前完成唤醒，造成永久等待。</text>
+<text x="40" y="758">lab2 原版的简化让出已在 lab4 重构为本图的标准锁交接，历史限制与设计取舍见 design-notes.md。</text>
+</svg>

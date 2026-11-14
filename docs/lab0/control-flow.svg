@@ -1,25 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="900" viewBox="0 0 1500 900">
-  <style>
-    .title{font:700 28px sans-serif;fill:#17212b}.lane{font:700 18px sans-serif;fill:#17212b}.box{fill:#f5f8fb;stroke:#526777;stroke-width:2}.u{fill:#e9f5ff}.s{fill:#fff3df}.i{fill:#eaf8ef}.t{font:16px sans-serif;fill:#17212b}.small{font:14px sans-serif;fill:#526777}.arrow{stroke:#2f5d7c;stroke-width:2.5;fill:none;marker-end:url(#a)}
-  </style>
-  <defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 z" fill="#2f5d7c"/></marker></defs>
-  <text x="40" y="45" class="title">lab0 任务一：echo hi 控制流</text>
-  <line x1="260" y1="80" x2="260" y2="850" stroke="#b8c5ce"/><line x1="620" y1="80" x2="620" y2="850" stroke="#b8c5ce"/><line x1="980" y1="80" x2="980" y2="850" stroke="#b8c5ce"/>
-  <text x="90" y="78" class="lane">用户态 U</text><text x="390" y="78" class="lane">内核态 S</text><text x="730" y="78" class="lane">设备中断</text><text x="1100" y="78" class="lane">调度与返回</text>
-  <rect x="45" y="110" width="180" height="58" rx="8" class="box u"/><text x="62" y="145" class="t">Shell read 等待</text>
-  <rect x="320" y="110" width="230" height="58" rx="8" class="box s"/><text x="340" y="145" class="t">consoleread / sleep</text>
-  <rect x="680" y="110" width="230" height="58" rx="8" class="box i"/><text x="700" y="145" class="t">UART 接收中断</text>
-  <rect x="680" y="220" width="230" height="58" rx="8" class="box i"/><text x="705" y="255" class="t">consoleintr 写入缓冲</text>
-  <rect x="320" y="330" width="230" height="58" rx="8" class="box s"/><text x="355" y="365" class="t">wakeup Shell</text>
-  <rect x="45" y="440" width="180" height="58" rx="8" class="box u"/><text x="78" y="475" class="t">fork()</text>
-  <rect x="320" y="440" width="230" height="58" rx="8" class="box s"/><text x="367" y="475" class="t">kfork / copy</text>
-  <rect x="45" y="550" width="180" height="58" rx="8" class="box u"/><text x="75" y="585" class="t">子进程 exec</text>
-  <rect x="320" y="550" width="230" height="58" rx="8" class="box s"/><text x="372" y="585" class="t">kexec / load ELF</text>
-  <rect x="680" y="440" width="230" height="58" rx="8" class="box i"/><text x="730" y="475" class="t">UART 输出</text>
-  <rect x="1040" y="440" width="300" height="58" rx="8" class="box"/><text x="1090" y="475" class="t">父进程 wait / 调度</text>
-  <rect x="45" y="700" width="180" height="58" rx="8" class="box u"/><text x="78" y="735" class="t">echo write 输出 hi</text>
-  <rect x="320" y="700" width="230" height="58" rx="8" class="box s"/><text x="380" y="735" class="t">sys_write</text>
-  <rect x="1040" y="700" width="300" height="58" rx="8" class="box"/><text x="1110" y="735" class="t">exit → wakeup → $ </text>
-  <path d="M225 139 H320" class="arrow"/><path d="M795 168 V220" class="arrow"/><path d="M680 249 H550 V359" class="arrow"/><path d="M320 359 H225 V139" class="arrow"/><path d="M225 469 H320" class="arrow"/><path d="M435 498 V550" class="arrow"/><path d="M225 579 H320" class="arrow"/><path d="M550 579 H680 V469" class="arrow"/><path d="M225 729 H320" class="arrow"/><path d="M550 729 H680" class="arrow"/><path d="M910 469 H1040" class="arrow"/><path d="M910 729 H1040" class="arrow"/>
-  <text x="265" y="128" class="small">ecall</text><text x="590" y="343" class="small">回车后唤醒</text><text x="245" y="458" class="small">父/子分流</text><text x="580" y="568" class="small">加载到用户地址空间</text><text x="575" y="718" class="small">ecall → sret</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="980" viewBox="0 0 1440 980">
+<style>text{font:20px sans-serif;fill:#182329} .h{font-size:30px;font-weight:bold}.s{font-size:18px}.note{fill:#ac3030} rect{fill:#f2f6f7;stroke:#6d858c} path{fill:none;stroke:#285b64;stroke-width:2;marker-end:url(#a)}</style>
+<defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0L9 3L0 6" fill="#285b64" stroke="none"/></marker></defs>
+<rect width="1440" height="980" fill="white"/><text x="40" y="55" class="h">lab0 · echo hi 控制流（提供的 xv6 参考树）</text>
+<text x="40" y="95" class="s">M 态只参与启动；以下运行链在 U/S 态之间转换。红字为 2026-11-14 补充分析。</text>
+<text x="60" y="145">U 态 / 用户栈</text><text x="570" y="145">S 态 / 当前进程内核栈</text><text x="1110" y="145">硬件 / 调度器</text>
+<rect x="40" y="170" width="390" height="85"/><text x="60" y="205">sh: read(0, buf, …)</text><text x="60" y="237">a7=read，ecall</text>
+<rect x="530" y="170" width="480" height="85"/><text x="550" y="205">uservec → usertrap → sys_read</text><text x="550" y="237">consoleread：无输入则登记等待</text><path d="M430 210H525"/>
+<rect x="1060" y="285" width="340" height="100"/><text x="1080" y="320">键盘 → UART → PLIC</text><text x="1080" y="352">S 外部中断 → uartintr</text><path d="M1220 385V420H1010"/>
+<rect x="530" y="380" width="480" height="85"/><text x="550" y="415">consoleintr：持 cons.lock 写缓冲</text><text x="550" y="447">回车提交 → wakeup → read 返回</text><path d="M530 423H430V290H230V255"/>
+<rect x="40" y="495" width="390" height="85"/><text x="60" y="530">sh 解析 → fork()</text><text x="60" y="562">父 wait；子 exec("echo", argv)</text><path d="M235 255V495"/>
+<rect x="530" y="495" width="480" height="85"/><text x="550" y="530">kfork：复制地址空间和 trapframe</text><text x="550" y="562">kexec：先装新映像，成功才换旧空间</text><path d="M430 535H525"/>
+<rect x="40" y="625" width="390" height="85"/><text x="60" y="660">echo: write(1, "hi", 2)</text><text x="60" y="692">用户栈；ecall 后返回下一指令</text><path d="M770 580V605H235V625"/>
+<rect x="530" y="625" width="480" height="85"/><text x="550" y="660">sys_write → filewrite → consolewrite</text><text x="550" y="692">UART 发出 hi；userret → sret</text><path d="M430 665H525"/>
+<rect x="40" y="755" width="970" height="80"/><text x="60" y="788">echo exit → ZOMBIE；父 wait 回收 → sh 再输出 $</text><text x="60" y="818">阻塞与退出经 sched/swtch 使用 CPU 调度器栈；状态更新持 p->lock。</text>
+<path d="M770 710V750"/>
+<text x="40" y="880" class="note">批注：fork 的父返回值为子 PID；子 trapframe.a0=0。单次 ecall 通过两份现场产生两个返回值。</text>
+<text x="40" y="918" class="note">批注：ecall 才将 sepc 加 4；UART 中断保留断点。硬件不保存通用寄存器，也不负责切换栈。</text>
+<text x="40" y="955" class="s">实测旁证见同目录 evidence.txt：echo hi、hi、$，以及 cause 8/9/5 的实际 QEMU 记录。</text>
 </svg>

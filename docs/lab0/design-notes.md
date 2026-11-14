@@ -10,7 +10,7 @@ lab0 不修改内核代码，目标是用一次 `echo hi` 贯通用户态、内�
 2. UART 接收字符触发外部中断，`uartintr` 读取字符并交给 `consoleintr`。
 3. 控制台输入缓冲区积累命令；回车使等待中的 `consoleread` 返回，Shell 获得 `echo hi`。
 4. Shell 调用 `fork`。父进程继续等待，子进程得到 `a0=0`，父进程得到子 PID。
-5. 子进程调用 `exec`，内核释放旧地址空间并装入 `user/echo` 的 ELF 镜像。
+5. 子进程调用 `exec`，内核先构建新 ELF 地址空间与参数栈，成功切换后才释放旧地址空间；失败保留原映像。
 6. `echo` 在 U 态调用 `write`，通过 `ecall` 进入 S 态，`sys_write` 最终调用 `consolewrite` 和 UART 输出。
 7. `echo` 调用 `exit` 进入僵尸状态并唤醒等待中的 Shell；Shell 的 `wait` 回收子进程后重新打印 `$ `。
 
@@ -44,4 +44,6 @@ trapframe 保存用户态完整现场；context 只保存软件上下文切换�
 
 ## 验证证据
 
-执行 QEMU 时可附加 `-d int -D int.log`，按 `async:0`、`cause` 和 `epc` 切片。系统调用应出现 cause 8，UART/磁盘设备使用外部中断 cause 9，时钟中断应出现 supervisor timer interrupt。内核地址可用 `riscv64-unknown-elf-addr2line -e kernel/kernel` 翻译；用户地址可先用 `objdump` 定位 `ecall` 桩。
+2026-11-14 重新运行提供的 xv6，实际输出保存在 [evidence.txt](evidence.txt)。复现命令为 `python3 support/capture_lab0.py`，使用磁盘 snapshot 模式。摘录包含 echo hi 的输出以及 ecall、外部中断和时钟的三类 cause；硬件日志不直接证明 swtch 的软件切栈过程。
+
+三张 SVG 已在图内补充红色分析批注、栈归属和锁状态。地址图修正了参考 xv6 的 guard 描述：它有有效 PTE，只清 U 位；课程 lab3 的两页 guard 则完全不映射。目录 `doc/lab0` 为到本目录的兼容链接，满足手册的交付路径。补齐日期如上，原 lab0-submit 不回写。
