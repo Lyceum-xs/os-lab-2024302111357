@@ -24,3 +24,4 @@
 #define SYS_schedstat  23
 #define SYS_time_rdtime 24
 #define SYS_setickets  25
+#define SYS_pmc        26

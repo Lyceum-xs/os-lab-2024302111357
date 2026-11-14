@@ -18,7 +18,8 @@ UPROGS = sh hi spin badecall bufstorm badaccess memcap vmguard vmcopy vmstress v
 UPROGS += bench lottery_test stride_test
 UPROGS += alt stride_cases schededge
 UPROGS += ioedge
-ULIB = user-flat/ulib.o user-flat/printf.o user-flat/usys.o user-flat/common.o
+UPROGS += zerocopy cowpair echo
+ULIB = user-flat/ulib.o user-flat/printf.o user-flat/usys.o user-flat/common.o user-flat/sh_input.o
 
 .DEFAULT_GOAL := kernel/kernel
 .PHONY: clean qemu test test-kernel test-uart test-lab4 test-policy test-sleep test-sched-kernel dump
@@ -56,6 +57,8 @@ user-flat/user-sv39.ld: user/user.ld support/build_images.py | user-flat
 	$(PYTHON) support/build_images.py linker user $< $@
 
 vpath %.c user tests support/tests
+user-flat/sh.o: UFLAGS += -Dgets=sh_gets
+user-flat/cowpair.o: UFLAGS += -Wno-unused-variable
 user-flat/%.o: %.c | user-flat
 	$(CC) $(UFLAGS) -c -o $@ $<
 
