@@ -84,6 +84,14 @@ usertrap(void)
     p->tf->epc += 4;
     intr_on();
     syscall();
+  } else if (cause == 15) {
+    if (cowfault(p, r_stval()) < 0) {
+      printf("USER-FAULT pid=%d cause=%x epc=%x va=%x\n",
+             p->pid, cause, p->tf->epc, r_stval());
+      acquire(&p->lock);
+      p->killed = 1;
+      release(&p->lock);
+    }
   } else if (!(device = devintr())) {
     printf("USER-FAULT pid=%d cause=%x epc=%x va=%x\n",
            p->pid, cause, p->tf->epc, r_stval());

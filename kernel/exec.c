@@ -13,7 +13,7 @@ struct uprog {
 extern const struct uprog _uprog_table[];
 
 int
-kexec(const char *name)
+kexec(const char *name, char *const argv[])
 {
   struct proc *p = myproc();
   const struct uprog *image;
@@ -52,13 +52,35 @@ kexec(const char *name)
   if (uvmgrow(table, stack_base, stack_top) < 0)
     goto fail;
 
+  uint64 sp = stack_top, pointers[MAXARG];
+  int argc = 0;
+  while (argv && argv[argc]) {
+    if (argc >= MAXARG - 1)
+      goto fail;
+    uint64 len = strlen(argv[argc]) + 1;
+    if (len > sp - stack_base)
+      goto fail;
+    sp = (sp - len) & ~15UL;
+    if (sp < stack_base || copyout(table, sp, argv[argc], len) < 0)
+      goto fail;
+    pointers[argc++] = sp;
+  }
+  pointers[argc] = 0;
+  uint64 pointer_bytes = (argc + 1) * sizeof(uint64);
+  if (pointer_bytes > sp - stack_base)
+    goto fail;
+  sp = (sp - pointer_bytes) & ~15UL;
+  if (sp < stack_base || copyout(table, sp, pointers, pointer_bytes) < 0)
+    goto fail;
+
   acquire(&p->lock);
   pagetable_t old = p->pagetable;
   p->pagetable = table;
   p->sz = p->heap_base = stack_top;
   memset(p->tf, 0, sizeof(*p->tf));
   p->tf->epc = image->entry;
-  p->tf->sp = stack_top;
+  p->tf->sp = sp;
+  p->tf->a1 = sp;
   memset(p->name, 0, sizeof(p->name));
   uint n = strlen(name);
   if (n >= sizeof(p->name))
@@ -67,7 +89,19 @@ kexec(const char *name)
   proc_exec_policy(p);
   release(&p->lock);
   uvmfree(old);
-  return 0;
+#ifdef LAB5_SELFTEST
+  if (!strcmp(name, "echo")) {
+    printf("EXECSTACK argc=%d sp=%x argv0=%x argv1=%x sentinel=%x\n",
+           argc, sp, pointers[0], argc > 1 ? pointers[1] : 0UL, pointers[argc]);
+    for (uint64 addr = sp; addr < stack_top && addr < sp + 64; addr += 8) {
+      uint64 value;
+      if (copyin(table, &value, addr, sizeof(value)) < 0)
+        panic("exec stack snapshot");
+      printf("EXECWORD va=%x data=%x\n", addr, value);
+    }
+  }
+#endif
+  return argc;
 fail:
   uvmfree(table);
   return -1;

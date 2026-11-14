@@ -2,6 +2,7 @@
 #define PAGETABLE_H
 
 #include "riscv.h"
+struct proc;
 
 extern pagetable_t kernel_pagetable;
 void kinit(void);
@@ -17,6 +18,8 @@ void kvminithart(void);
 pagetable_t uvmcreate(uint64);
 void uvmfree(pagetable_t);
 int uvmcopy(pagetable_t, pagetable_t, uint64);
+int cow_alloc(pagetable_t, uint64);
+int cowfault(struct proc *, uint64);
 int uvmgrow(pagetable_t, uint64, uint64);
 uint64 userpa(pagetable_t, uint64, int);
 int usercheck(pagetable_t, uint64, uint64, int);
@@ -25,5 +28,6 @@ int copyout(pagetable_t, uint64, const void *, uint64);
 int copyinstr(pagetable_t, char *, uint64, uint64);
 void dump_pagetable(pagetable_t);
 void vmselftest(void);
+void cowselftest(void);
 
 #endif

@@ -38,7 +38,8 @@ uint64 sys_write(void), sys_exec(void), sys_getpid(void), sys_sbrk(void);
 uint64 sys_pause(void), sys_kill(void), sys_uptime(void);
 uint64 sys_schedstat(void), sys_time_rdtime(void), sys_setickets(void);
 
-static uint64 (*syscalls[26])(void) = {
+extern uint64 sys_pmc(void);
+static uint64 (*syscalls[27])(void) = {
   [SYS_fork] = sys_fork,
   [SYS_exit] = sys_exit,
   [SYS_wait] = sys_wait,
@@ -53,6 +54,7 @@ static uint64 (*syscalls[26])(void) = {
   [SYS_schedstat] = sys_schedstat,
   [SYS_time_rdtime] = sys_time_rdtime,
   [SYS_setickets] = sys_setickets,
+  [SYS_pmc] = sys_pmc,
 };
 
 void

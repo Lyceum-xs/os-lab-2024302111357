@@ -1,12 +1,18 @@
 #include "types.h"
 #include "riscv.h"
 #include "memlayout.h"
+#include "course_sid.h"
+#include "proc.h"
+#include "vm.h"
 #include "pagetable.h"
 #include "defs.h"
 
 #define LEAF (PTE_R | PTE_W | PTE_X)
 /* RSW bit belongs to this single-core, non-preemptible kernel transaction. */
-#define PTE_NEW (1UL << 8)
+#define PTE_NEW (1UL << 9)
+#if LAB5_REFCNT_SCHEME != 1
+#error This implementation uses the personal global-array reference scheme.
+#endif
 pagetable_t kernel_pagetable;
 extern char trampoline[], kernel_text_end[];
 
@@ -250,16 +256,68 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       continue;
     if (!(*pte & PTE_U))
       return -1;
-    void *page = kalloc();
-    if (!page)
+    uint64 pa = PTE2PA(*pte);
+    uint flags = PTE_FLAGS(*pte);
+    if (flags & PTE_W)
+      flags = (flags & ~PTE_W) | PTE_COW;
+    if (mappages(new, a, PGSIZE, pa, flags) < 0)
       return -1;
-    memcpy(page, (void *)PTE2PA(*pte), PGSIZE);
-    if (mappages(new, a, PGSIZE, (uint64)page, PTE_FLAGS(*pte)) < 0) {
-      kfree(page);
-      return -1;
-    }
+    kref_inc(pa);
+  }
+  /* Commit parent permissions only after every child mapping succeeded. */
+  for (uint64 a = 0; a < sz; a += PGSIZE) {
+    pte_t *pte = walk(old, a, 0);
+    if (pte && (*pte & PTE_V) && (*pte & PTE_U) && (*pte & PTE_W))
+      *pte = (*pte & ~PTE_W) | PTE_COW;
+  }
+  sfence_vma();
+  return 0;
+}
+
+int
+cow_alloc(pagetable_t table, uint64 va)
+{
+  pte_t *pte = walk(table, va, 0);
+  if (!pte || ((*pte & (PTE_V | PTE_U)) != (PTE_V | PTE_U)) ||
+      !(*pte & LEAF))
+    return -1;
+  if (*pte & PTE_W)
+    return 0;
+  if (!(*pte & PTE_COW))
+    return -1;
+  uint64 old = PTE2PA(*pte);
+  uint flags = (PTE_FLAGS(*pte) & ~PTE_COW) | PTE_W;
+  if (kref_get(old) == 1) {
+    *pte = PA2PTE(old) | flags;
+    sfence_vma();
+    return 0;
+  }
+  void *page = kalloc();
+  if (!page)
+    return -1;
+  memcpy(page, (void *)old, PGSIZE);
+  *pte = PA2PTE(page) | flags;
+  sfence_vma();
+  kfree((void *)old);
+  kcow_record();
+  struct proc *p = myproc();
+  if (p && p->pagetable == table) {
+    p->cow_copies++;
+    if (p->cow_copies == LAB5_COW_BUDGET)
+      printf("[cow] pid=%d reached LAB5_COW_BUDGET=%d, downgrade: continue copying\n",
+             p->pid, LAB5_COW_BUDGET);
   }
   return 0;
+}
+
+int
+cowfault(struct proc *p, uint64 va)
+{
+#if LAB5_KILL_SEMANTICS == 0
+  if (killed(p))
+    return -1;
+#endif
+  return cow_alloc(p->pagetable, va);
 }
 
 uint64
@@ -277,15 +335,22 @@ usercheck(pagetable_t table, uint64 addr, uint64 n, int perm)
 {
   if (addr >= MAXVA || n > MAXVA - addr)
     return -1;
-  for (uint64 a = addr; n;) {
-    if (!userpa(table, a, perm))
+  uint64 end = addr + n;
+  for (uint64 a = PGROUNDDOWN(addr); a < end && n; a += PGSIZE) {
+    pte_t *pte = walk(table, a, 0);
+    if (!pte || ((*pte & (PTE_V | PTE_U | PTE_R)) != (PTE_V | PTE_U | PTE_R)) ||
+        !(*pte & LEAF))
       return -1;
-    uint64 part = PGSIZE - a % PGSIZE;
-    if (part > n)
-      part = n;
-    a += part;
-    n -= part;
+    uint allowed = PTE_FLAGS(*pte);
+    if (allowed & PTE_COW)
+      allowed |= PTE_W;
+    if ((allowed & perm) != perm)
+      return -1;
   }
+  if (perm & PTE_W)
+    for (uint64 a = PGROUNDDOWN(addr); a < end && n; a += PGSIZE)
+      if (cow_alloc(table, a) < 0)
+        return -1;
   return 0;
 }
 

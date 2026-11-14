@@ -68,6 +68,7 @@ struct proc {
   struct proc *parent;
   int exit_status;
   int killed;
+  uint64 cow_copies;
   int cpu_ticks;
   int last_slice_ticks;
   int tickets;

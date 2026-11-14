@@ -7,6 +7,9 @@
 
 #define MAXPAGES ((PHYSTOP - KERNBASE) / PGSIZE)
 static uint64 freebits[MAXPAGES / 64];
+static uint16 refcnt[MAXPAGES];
+static uint shared_pages;
+static uint64 cow_copies;
 static uint64 first_page;
 static uint npages, available;
 static int highest;
@@ -23,6 +26,7 @@ kinit(void)
     panic("no physical memory");
   npages = (limit - first_page) / PGSIZE;
   memset(freebits, 0, sizeof(freebits));
+  memset(refcnt, 0, sizeof(refcnt));
   for (uint i = 0; i < npages; i++)
     freebits[i / 64] |= 1UL << (i % 64);
   available = npages;
@@ -78,9 +82,11 @@ kalloc(void)
   }
 #endif
   freebits[index / 64] &= ~(1UL << (index % 64));
+  uint64 pa = first_page + (uint64)index * PGSIZE;
+  refcnt[(pa - KERNBASE) / PGSIZE] = 1;
   available--;
   release(&memlock);
-  void *page = (void *)(first_page + (uint64)index * PGSIZE);
+  void *page = (void *)pa;
   memset(page, 0, PGSIZE);
   return page;
 }
@@ -95,12 +101,76 @@ kfree(void *page)
   uint index = (pa - first_page) / PGSIZE;
   uint64 bit = 1UL << (index % 64);
   acquire(&memlock);
-  if (freebits[index / 64] & bit)
-    panic("kfree twice");
-  memset(page, 1, PGSIZE);
+  uint16 *refs = &refcnt[(pa - KERNBASE) / PGSIZE];
+  if (!*refs)
+    panic("kfree: refcnt underflow");
+  if (*refs == 2)
+    shared_pages--;
+  if (--*refs) {
+    release(&memlock);
+    return;
+  }
+  memset(page, 0x5a, PGSIZE);
   freebits[index / 64] |= bit;
   if ((int)(index / 64) > highest)
     highest = index / 64;
   available++;
+  release(&memlock);
+}
+
+static uint
+refindex(uint64 pa)
+{
+  if (pa % PGSIZE || pa < first_page ||
+      pa >= first_page + (uint64)npages * PGSIZE)
+    panic("kref range");
+  return (pa - KERNBASE) / PGSIZE;
+}
+
+void
+kref_inc(uint64 pa)
+{
+  uint index = refindex(pa);
+  acquire(&memlock);
+  if (!refcnt[index] || refcnt[index] == 65535)
+    panic("kref overflow or free page");
+  if (refcnt[index]++ == 1)
+    shared_pages++;
+  release(&memlock);
+}
+
+uint
+kref_get(uint64 pa)
+{
+  uint index = refindex(pa);
+  acquire(&memlock);
+  uint count = refcnt[index];
+  release(&memlock);
+  return count;
+}
+
+uint64
+kshared_count(void)
+{
+  acquire(&memlock);
+  uint64 count = shared_pages;
+  release(&memlock);
+  return count;
+}
+
+uint64
+kcow_copy_count(void)
+{
+  acquire(&memlock);
+  uint64 count = cow_copies;
+  release(&memlock);
+  return count;
+}
+
+void
+kcow_record(void)
+{
+  acquire(&memlock);
+  cow_copies++;
   release(&memlock);
 }

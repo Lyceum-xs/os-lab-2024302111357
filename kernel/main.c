@@ -27,6 +27,9 @@ main(void)
 #ifdef LAB3_SELFTEST
   vmselftest();
 #endif
+#ifdef LAB5_SELFTEST
+  cowselftest();
+#endif
   kvminit();
   kvminithart();
   plicinit();

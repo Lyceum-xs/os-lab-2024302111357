@@ -49,6 +49,7 @@ freeproc(struct proc *p)
   p->tf = 0;
   p->parent = 0;
   p->pid = p->exit_status = p->killed = 0;
+  p->cow_copies = 0;
   p->cpu_ticks = p->last_slice_ticks = 0;
   p->tickets = 1;
   p->tickets_set = 0;
@@ -134,8 +135,11 @@ userinit(void)
   initproc = p;
   mycpu()->proc = p;
   release(&p->lock);
-  if (kexec("sh") < 0)
+  char *argv[] = {"sh", 0};
+  int argc = kexec("sh", argv);
+  if (argc < 0)
     panic("userinit exec");
+  p->tf->a0 = argc;
   dump_pagetable(p->pagetable);
   acquire(&p->lock);
   p->state = RUNNABLE;

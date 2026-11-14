@@ -1,6 +1,7 @@
 #include "types.h"
 #include "proc.h"
 #include "vm.h"
+#include "pagetable.h"
 #include "defs.h"
 
 uint64 sys_fork(void) { return kfork(); }
@@ -59,7 +60,34 @@ sys_exec(void)
       name[i] = '\0';
       break;
     }
-  return kexec(name);
+  uint64 uargv;
+  argaddr(1, &uargv);
+  if (!uargv)
+    return kexec(name, 0);
+  char *buffer = kalloc();
+  if (!buffer)
+    return (uint64)-1;
+  char *argv[MAXARG];
+  uint used = 0;
+  int result = -1;
+  for (int argc = 0; argc < MAXARG; argc++) {
+    uint64 arg;
+    if (uargv >= MAXVA || (uint64)argc * sizeof(uint64) > MAXVA - uargv ||
+        copyin(myproc()->pagetable, &arg, uargv + argc * sizeof(uint64), sizeof(arg)) < 0)
+      break;
+    if (!arg) {
+      argv[argc] = 0;
+      result = kexec(name, argv);
+      break;
+    }
+    if (argc == MAXARG - 1 || used == PGSIZE ||
+        copyinstr(myproc()->pagetable, buffer + used, arg, PGSIZE - used) < 0)
+      break;
+    argv[argc] = buffer + used;
+    used += strlen(argv[argc]) + 1;
+  }
+  kfree(buffer);
+  return result;
 }
 
 uint64
@@ -109,4 +137,16 @@ sys_schedstat(void)
   argaddr(1, &cpu);
   argaddr(2, &slice);
   return kschedstat(pid, cpu, slice);
+}
+
+uint64
+sys_pmc(void)
+{
+  int which;
+  argint(0, &which);
+  if (which == 0)
+    return kcow_copy_count();
+  if (which == 1)
+    return kshared_count();
+  return (uint64)-1;
 }

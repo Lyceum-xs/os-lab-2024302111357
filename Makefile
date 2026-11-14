@@ -13,12 +13,13 @@ OBJS = kernel/entry.o kernel/start.o kernel/main.o kernel/string.o \
        kernel/console.o kernel/printf.o kernel/uart.o kernel/plic.o \
        kernel/trap.o kernel/proc.o kernel/syscall.o kernel/sysproc.o \
        kernel/exec.o kernel/trampoline.o kernel/userimg.o kernel/swtch.o \
-       kernel/kernelvec.o kernel/kalloc.o kernel/vm.o kernel/vmtest.o kernel/spinlock.o
+       kernel/kernelvec.o kernel/kalloc.o kernel/vm.o kernel/vmtest.o kernel/spinlock.o kernel/cowtest.o
 UPROGS = sh hi spin badecall bufstorm badaccess memcap vmguard vmcopy vmstress vmconcurrent
 UPROGS += bench lottery_test stride_test
 UPROGS += alt stride_cases schededge
 UPROGS += ioedge
 UPROGS += zerocopy cowpair echo
+UPROGS += cowtest
 ULIB = user-flat/ulib.o user-flat/printf.o user-flat/usys.o user-flat/common.o user-flat/sh_input.o
 
 .DEFAULT_GOAL := kernel/kernel
@@ -31,6 +32,17 @@ test-lab1:
 
 test-lab2: kernel/kernel
 	$(PYTHON) support/test_lab2.py
+
+.PHONY: test-lab5 test-cow-kernel
+test-lab5: kernel/kernel
+	$(PYTHON) support/test_lab5.py
+
+test-cow-kernel:
+	$(MAKE) clean
+	$(MAKE) EXTRA_CFLAGS=-DLAB5_SELFTEST kernel/kernel
+	$(PYTHON) support/test_lab5.py --kernel-only
+	$(MAKE) clean
+	$(MAKE) kernel/kernel
 
 kernel/kernel: $(OBJS) kernel/kernel-sv39.ld
 	$(LD) -T kernel/kernel-sv39.ld -o $@ $(OBJS)
